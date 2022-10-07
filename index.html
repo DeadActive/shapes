@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Document</title>
+        <link rel="stylesheet" href="/css/reset.css" />
+        <link rel="stylesheet" href="/css/main.css" />
+    </head>
+    <body>
+        <div class="app">
+            <div class="editor">
+                <div class="toolbar">
+                    <button class="js-drawNewShape">Draw new shape</button>
+
+                    <label for="color">Hue</label>
+                    <input
+                        type="range"
+                        name="color"
+                        id="color"
+                        min="0"
+                        max="360"
+                        class="js-hue"
+                    />
+                </div>
+                <svg class="js-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+            </div>
+        </div>
+
+        <!-- <script src="/js/shape.js"></script> -->
+        <script src="/js/bezier.js"></script>
+    </body>
+</html>

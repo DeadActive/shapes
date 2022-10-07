@@ -1,0 +1,88 @@
+:root {
+    --cursor: default
+}
+
+body {
+    background-color: #eee;
+}
+
+.draw-container {
+    user-select: none;
+    pointer-events: none;
+}
+
+.controls-container {
+    user-select: none;
+}
+
+.controls-container path {
+    transition: 0.2s ease opacity;
+}
+
+.controls-container .segment-wrapper > .center {
+    opacity: 0.6;
+}
+
+.controls-container .segment-wrapper > .center:hover {
+    opacity: 1;
+    cursor: pointer;
+}
+
+.controls-container .segment-wrapper:hover > .center {
+    visibility: visible;
+}
+
+.controls-container *[data-control-type="point"].selected{
+    fill: rgb(0, 174, 255);
+}
+
+.controls-container *[data-control-type="segment"].selected {
+    stroke: rgb(0, 174, 255);
+}
+
+.controls-container *[data-control-type="point"] {
+    cursor: grab;
+}
+
+.controls-container *[data-control-type="control"] {
+    cursor: grab;
+}
+
+.controls-container *[data-control-type="segment"] {
+    cursor: grab;
+    opacity: 0;
+    transition: 0.2s ease opacity;
+}
+
+.controls-container *[data-control-type="segment"]:hover {
+    opacity: 0.4;
+}
+
+.toolbar{
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    border: 1px solid black;
+    padding: 10px 8px;
+}
+
+.flex-col{
+    display: flex;
+    gap: 8px;
+    flex-direction: column;
+}
+
+.app{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100vw;
+    height: 100vh;
+}
+
+.editor {
+    background-color: #fff;
+    width: 1000px;
+    height: 1000px;
+    cursor: var(--cursor);
+}
