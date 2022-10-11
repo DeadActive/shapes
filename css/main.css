@@ -1,5 +1,12 @@
 :root {
-    --cursor: default
+    --cursor: default;
+    --point-fill: #ffffff;
+    --point-stroke: #0000ff;
+    --handler-fill: #00ff00;
+    --handler-stroke: #00ff00;
+    --handler-line: #0000ff;
+    --segment-fill: transparent;
+    --segment-stroke: #0000ff;
 }
 
 body {
@@ -21,6 +28,8 @@ body {
 
 .controls-container .segment-wrapper > .center {
     opacity: 0.6;
+    fill: var(--point-fill);
+    stroke: var(--point-stroke);
 }
 
 .controls-container .segment-wrapper > .center:hover {
@@ -32,6 +41,31 @@ body {
     visibility: visible;
 }
 
+.controls-container *[data-control-type="point"] {
+    cursor: grab;
+    fill: var(--point-fill);
+    stroke: var(--point-stroke);
+}
+
+.controls-container .control-wrapper>circle[data-control-type="control"]{
+    cursor: grab;
+        fill: var(--handler-fill);
+        stroke: var(--handler-stroke);
+}
+
+.controls-container .control-wrapper>path{
+    stroke: var(--handler-line);
+    fill: transparent;
+}
+
+.controls-container *[data-control-type="segment"] {
+    cursor: grab;
+    opacity: 0;
+    transition: 0.2s ease opacity;
+    fill: var(--segment-fill);
+    stroke: var(--segment-stroke);
+}
+
 .controls-container *[data-control-type="point"].selected{
     fill: rgb(0, 174, 255);
 }
@@ -40,19 +74,8 @@ body {
     stroke: rgb(0, 174, 255);
 }
 
-.controls-container *[data-control-type="point"] {
-    cursor: grab;
-}
 
-.controls-container *[data-control-type="control"] {
-    cursor: grab;
-}
 
-.controls-container *[data-control-type="segment"] {
-    cursor: grab;
-    opacity: 0;
-    transition: 0.2s ease opacity;
-}
 
 .controls-container *[data-control-type="segment"]:hover {
     opacity: 0.4;
@@ -76,13 +99,13 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    width: 100vw;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
 }
 
 .editor {
     background-color: #fff;
-    width: 1000px;
-    height: 1000px;
+    width: 800px;
+    height: 800px;
     cursor: var(--cursor);
 }

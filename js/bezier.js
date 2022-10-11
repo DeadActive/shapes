@@ -2,6 +2,10 @@ function createSVGElement(tag, options) {
     return document.createElementNS('http://www.w3.org/2000/svg', tag, options)
 }
 
+function setCSSProperty(el, property, value) {
+    el.style.setProperty(property, value)
+}
+
 function vectorDistance(x, y, x1, y1) {
     return Math.sqrt(Math.pow(x - x1, 2) + Math.pow(y - y1, 2))
 }
@@ -163,6 +167,7 @@ function Point(coords, controls, container, shape, segments = []) {
     }
 
     this.select = function () {
+        console.log(this.isSelected, this.isBezier)
         if (this.isBezier) {
             this.controls.forEach(function (control) {
                 control.visible = true
@@ -182,112 +187,14 @@ function Point(coords, controls, container, shape, segments = []) {
         this.isSelected = false
     }
 
-    function handleEvents(element) {
-        element.addEventListener('mouseenter', onMouseEnter)
-        element.addEventListener('mouseleave', onMouseLeave)
+    this.updateBehavior = function () {
+        if (this.removeBehavior) this.removeBehavior()
+        this.removeBehavior = this.shape.behaviors['points'].call(this, this.pointElement)
+    }
 
-        let lastX
-        let lastY
-        let lastPointX = this.coords[0]
-        let lastPointY = this.coords[1]
-
-        const onMouseUpBinded = onMouseUp.bind(this)
-        const onMouseMoveBinded = onMouseMove.bind(this)
-        const onMouseDownBinded = onMouseDown.bind(this)
-        const onDoubleClickBinded = onDoubleClick.bind(this)
-        const onKeyDownBinded = onKeyDown.bind(this)
-
-        element.addEventListener('dblclick', onDoubleClickBinded)
-        document.addEventListener('keydown', onKeyDownBinded)
-
-        function onDoubleClick() {
-            document.addEventListener('mousedown', onMouseDownBinded)
-            document.addEventListener('mouseup', onMouseUpBinded)
-
-            document.removeEventListener('mousemove', onMouseMoveBinded)
-
-            this.toggleBezier()
-            this.controls.forEach(function (control) {
-                control.repaint()
-            })
-            this.segments.forEach(function (segment) { segment.repaint() })
-            this.shape.repaint()
-
-            if (!this.selected) {
-                this.shape.selectPoint(this)
-            }
-        }
-
-        function onKeyDown(event) {
-            if (!this.isSelected) return
-
-            if (event.key === 'Backspace' || event.key === 'Delete') {
-                this.shape.removePoint(this)
-            }
-        }
-
-        function onMouseEnter() {
-            document.addEventListener('mousedown', onMouseDownBinded)
-            document.addEventListener('mouseup', onMouseUpBinded)
-        }
-
-        function onMouseLeave() {
-            document.removeEventListener('mousedown', onMouseDownBinded)
-        }
-
-        function onMouseDown() {
-            document.addEventListener('mousemove', onMouseMoveBinded)
-
-            lastPointX = this.coords[0]
-            lastPointY = this.coords[1]
-
-            if (!this.selected) {
-                this.shape.selectPoint(this)
-            }
-        }
-
-        function onMouseUp() {
-            document.removeEventListener('mousemove', onMouseMoveBinded)
-            document.removeEventListener('mouseup', onMouseUpBinded)
-
-            lastX = null
-            lastY = null
-
-            if (this.coords[0] !== lastPointX || this.coords[1] !== lastPointY) {
-                console.log('movePointCommand', [lastPointX, lastPointY], this.coords)
-
-                lastPointX = this.coords[0]
-                lastPointY = this.coords[1]
-            }
-        }
-
-        function onMouseMove(event) {
-            if (lastX && lastY) {
-                let deltaX = event.clientX - lastX
-                let deltaY = event.clientY - lastY
-
-                this.move(deltaX, deltaY)
-                this.repaint()
-                this.controls.forEach(function (control) { control.repaint() })
-                this.segments.forEach(function (segment) { segment.repaint() })
-                this.shape.repaint()
-            }
-
-            lastX = event.clientX
-            lastY = event.clientY
-        }
-
-        return function () {
-            element.removeEventListener('mouseenter', onMouseEnter)
-            element.removeEventListener('mouseleave', onMouseLeave)
-            document.removeEventListener('mousedown', onMouseDownBinded)
-            document.removeEventListener('mousemove', onMouseMoveBinded)
-            document.removeEventListener('mouseup', onMouseUpBinded)
-            document.removeEventListener('dblclick', onDoubleClickBinded)
-            document.removeEventListener('keydown', onKeyDownBinded)
-
-            this.pointElement.remove()
-        }
+    this.clear = function () {
+        if (this.removeBehavior) this.removeBehavior()
+        this.pointElement.remove()
     }
 
     this.repaint = function () {
@@ -302,13 +209,9 @@ function Point(coords, controls, container, shape, segments = []) {
         pointElement.setAttribute('cx', coords[0])
         pointElement.setAttribute('cy', coords[1])
         pointElement.setAttribute('r', 5)
-        pointElement.setAttribute('stroke', '#00f')
-        pointElement.setAttribute('fill', '#fff')
 
         pointElement.dataset['controlType'] = 'point'
         this.pointElement.dataset['pointIndex'] = this.shape.points.length - 1
-
-        this.clear = handleEvents.call(this, pointElement)
 
         container.append(pointElement)
     }
@@ -328,6 +231,7 @@ function Handler(point, coords, container, shape) {
     this.shape = shape
     this.handlerElement = createSVGElement('circle')
     this.lineElement = createSVGElement('path')
+    this.controlElem = createSVGElement('g')
     this.visible = false
     this.isMirrorPosition = true
     this.isMirrorAngle = false
@@ -350,110 +254,22 @@ function Handler(point, coords, container, shape) {
         this.lineElement.setAttribute('visibility', this.visible ? 'visible' : 'hidden')
     }
 
-    function handleEvents(element) {
-        element.addEventListener('mouseenter', onMouseEnter)
-        element.addEventListener('mouseleave', onMouseLeave)
+    this.updateBehavior = function () {
+        if (this.removeBehavior) this.removeBehavior()
+        this.removeBehavior = this.shape.behaviors['handlers'].call(this, this.handlerElement)
+    }
 
-        let lastX
-        let lastY
-        let lastHandlerX
-        let lastHandlerY
-
-        const onMouseMoveBinded = onMouseMove.bind(this)
-        const onMouseDownBinded = onMouseDown.bind(this)
-        const onMouseUpBinded = onMouseUp.bind(this)
-
-        function onMouseEnter(event) {
-            document.addEventListener('mousedown', onMouseDownBinded)
-            document.addEventListener('mouseup', onMouseUpBinded)
-        }
-
-        function onMouseLeave() {
-            document.removeEventListener('mousedown', onMouseDownBinded)
-        }
-
-        function onMouseDown() {
-            document.addEventListener('mousemove', onMouseMoveBinded)
-
-            lastHandlerX = this.coords[0]
-            lastHandlerY = this.coords[1]
-        }
-
-        function onMouseUp() {
-            document.removeEventListener('mousemove', onMouseMoveBinded)
-            document.removeEventListener('mouseup', onMouseUpBinded)
-
-            lastX = null
-            lastY = null
-
-            if (this.coords[0] !== lastHandlerX || this.coords[1] !== lastHandlerY) {
-                console.log('moveHandlerCommand', [lastHandlerX, lastHandlerY], this.coords)
-
-                lastHandlerX = this.coords[0]
-                lastHandlerY = this.coords[1]
-            }
-        }
-
-        function onMouseMove(event) {
-            if (lastX && lastY) {
-                let deltaX = event.clientX - lastX
-                let deltaY = event.clientY - lastY
-
-                this.move(deltaX, deltaY)
-
-                if (this.isMirrorPosition) {
-                    const control = this.point.controls.find(c => c !== this)
-
-                    control.move(-deltaX, -deltaY)
-                    control.repaint()
-                }
-
-                if (this.isMirrorAngle) {
-                    const deltaVector = new Vector2([-deltaX, -deltaY])
-                    if (deltaVector.magnitude() === 0) return
-
-                    const control = this.point.controls.find(c => c !== this)
-                    const radiusVector = Vector2.fromPoints(control.coords, this.point.coords)
-
-                    const cos = radiusVector.dotProduct(deltaVector) / (radiusVector.magnitude() * deltaVector.magnitude())
-
-                    const angle = Math.acos(cos)
-
-                    console.log(cos, angle)
-
-                    const rotatedVector = radiusVector.rotate(angle / 180 * Math.PI)
-
-                    const moveVector = radiusVector.addVector(rotatedVector.reverse())
-
-                    // control.move(moveVector.x, moveVector.y)
-                    control.repaint()
-                }
-
-                this.repaint()
-                this.point.repaint()
-                this.point.segments.forEach(function (segment) { segment.repaint() })
-                this.shape.repaint()
-            }
-
-            lastX = event.clientX
-            lastY = event.clientY
-        }
-
-        return function () {
-            document.removeEventListener('mouseenter', onMouseEnter)
-            document.removeEventListener('mouseleave', onMouseLeave)
-            document.removeEventListener('mousedown', onMouseDownBinded)
-            document.removeEventListener('mousemove', onMouseMoveBinded)
-            document.removeEventListener('mouseup', onMouseUpBinded)
-
-            this.handlerElement.parentElement.remove()
-        }
+    this.clear = function () {
+        if (this.removeBehavior) this.removeBehavior()
+        this.handlerElement.remove()
+        this.lineElement.remove()
+        this.controlElem.remove()
     }
 
     this.draw = function () {
-        const { point, coords, container, handlerElement, lineElement } = this
+        const { point, coords, container, handlerElement, lineElement, controlElem } = this
 
-        const controlElem = createSVGElement('g')
+        controlElem.classList.toggle('control-wrapper', true)
 
         if (this.point.isBezier) {
             controlElem.setAttribute('visibility', 'visible')
@@ -466,22 +282,13 @@ function Handler(point, coords, container, shape) {
 
         handlerElement.setAttribute('r', 5)
 
-
-        handlerElement.setAttribute('fill', '#0f0')
-
         lineElement.setAttribute('d', `M ${point.coords[0]} ${point.coords[1]} L ${coords[0]} ${coords[1]}`)
-        lineElement.setAttribute('stroke', '#00f')
-        lineElement.setAttribute('fill', 'transparent')
-
-
 
         controlElem.append(lineElement, handlerElement)
 
         // handlerElement.dataset['pointIndex'] = pointIndex
         // handlerElement.dataset['controlIndex'] = controlIndex
         handlerElement.dataset['controlType'] = 'control'
-
-        this.clear = handleEvents.call(this, handlerElement)
 
         container.append(controlElem)
     }
@@ -562,103 +369,16 @@ function Segment(points, container, shape) {
         return LUT
     }
 
-    function handleEvents(element) {
-        element.addEventListener('mouseenter', onMouseEnter)
-        element.addEventListener('mouseleave', onMouseLeave)
-
-        let lastX
-        let lastY
-        let deltaSum = 0
-
-        const onMouseDragBinded = onMouseDrag.bind(this)
-        const onMouseDownBinded = onMouseDown.bind(this)
-        const onMouseUpBinded = onMouseUp.bind(this)
-
-        function onMouseEnter() {
-            document.addEventListener('mousedown', onMouseDownBinded)
-            document.addEventListener('mouseup', onMouseUpBinded)
-        }
-
-        function onMouseLeave() {
-            document.removeEventListener('mousedown', onMouseDownBinded)
-        }
-
-        function onMouseDown() {
-            document.addEventListener('mousemove', onMouseDragBinded)
-
-            if (!this.selected) {
-                this.shape.selectSegment(this)
-            }
-        }
-
-        function onMouseUp() {
-            document.removeEventListener('mousemove', onMouseDragBinded)
-            document.removeEventListener('mouseup', onMouseUpBinded)
-
-            if (deltaSum !== 0) {
-                console.log('segmentMoveCommand')
-                deltaSum = 0
-            }
-
-            lastX = null
-            lastY = null
-        }
-
-        function onMouseDrag(event) {
-            if (lastX && lastY) {
-                let deltaX = event.clientX - lastX
-                let deltaY = event.clientY - lastY
-
-                deltaSum += deltaX + deltaY
-
-                this.move(deltaX, deltaY)
-
-                this.points.forEach(function (point) {
-                    point.repaint()
-                    point.controls.forEach(function (control) {
-                        control.repaint()
-                    })
-                })
-
-                this.shape.repaint(true)
-            }
-
-            lastX = event.clientX
-            lastY = event.clientY
-        }
-
-        return function () {
-            document.removeEventListener('mouseenter', onMouseEnter)
-            document.removeEventListener('mouseleave', onMouseLeave)
-            document.removeEventListener('mousedown', onMouseDownBinded)
-            document.removeEventListener('mouseup', onMouseUpBinded)
-            document.removeEventListener('mousemove', onMouseDragBinded)
-
-            this.segmentElement.remove()
-        }
+    this.updateBehavior = function () {
+        if (this.removeBehavior) this.removeBehavior()
+        this.removeBehavior = this.shape.behaviors['segments'].call(this, this.segmentElement)
     }
 
-    function handleEventsCenter(element) {
-        const onMouseDownBinded = onMouseDown.bind(this)
-
-        element.addEventListener('mousedown', onMouseDownBinded)
-
-        function onMouseDown() {
-            const center = this.getCenter()
-            const point = this.shape.insertPointAfter(this.points[1], center[0], center[1])
-
-            if (this.points[0].isBezier || this.points[1].isBezier) {
-                point.toggleBezier()
-            }
-
-            this.shape.selectPoint(point)
-        }
-
-        return function () {
-            element.removeEventListener('mousedown', onMouseDownBinded)
-
-            this.centerElement.remove()
-        }
+    this.clear = function () {
+        if (this.removeBehavior) this.removeBehavior()
+        this.centerElement.remove()
+        this.segmentElement.remove()
+        this.wrapperElement.remove()
     }
 
     this.draw = function () {
@@ -674,8 +394,6 @@ function Segment(points, container, shape) {
             `${point.coords[0]} ${point.coords[1]}`
 
         segmentElement.setAttribute('d', segmentD)
-        segmentElement.setAttribute('fill', 'transparent')
-        segmentElement.setAttribute('stroke', '#0000ff')
         segmentElement.setAttribute('stroke-width', 8)
         segmentElement.dataset['controlType'] = 'segment'
 
@@ -684,20 +402,8 @@ function Segment(points, container, shape) {
         centerElement.setAttribute('cx', centerCoords[0])
         centerElement.setAttribute('cy', centerCoords[1])
         centerElement.setAttribute('r', 5)
-        centerElement.setAttribute('stroke', '#00f')
-        centerElement.setAttribute('fill', '#fff')
         centerElement.setAttribute('visibility', 'hidden')
         centerElement.classList.toggle('center')
-
-        const clearSegment = handleEvents.call(this, segmentElement)
-        const clearCenter = handleEventsCenter.call(this, centerElement)
-
-        this.clear = function () {
-            clearSegment.call(this)
-            clearCenter.call(this)
-
-            wrapperElement.remove()
-        }
 
         wrapperElement.classList.toggle('segment-wrapper')
 
@@ -708,13 +414,13 @@ function Segment(points, container, shape) {
     }
 }
 
-function Shape(container) {
+function Shape(container, behaviors) {
     this.points = []
     this.segments = []
     this.handlers = []
     this.isClosed = false
-    this.isEditMode = false
-    this.isDrawMode = false
+    this.isDrawHandlers = false
+    this.behaviors = behaviors
 
     this.container = container
 
@@ -732,8 +438,6 @@ function Shape(container) {
     this.fill = '#0000ff50'
     this.stroke = '#f00'
     this.strokeWidth = 1
-
-    this.clear = handleEvents.call(this)
 
     this.setFill = function (value) {
         this.fill = value
@@ -770,7 +474,6 @@ function Shape(container) {
         handler2.draw()
 
         this.calculateSegments()
-
         this.repaint()
 
         return point
@@ -802,8 +505,6 @@ function Shape(container) {
 
         this.calculateSegments()
         this.repaint()
-
-        console.log(this)
 
         return point
     }
@@ -846,6 +547,8 @@ function Shape(container) {
             this.segments.push(segment)
             segment.draw()
         }
+
+        this.updateBehaviors()
     }
 
     this.removePointIndex = function (index) {
@@ -877,6 +580,7 @@ function Shape(container) {
         this.isClosed = true
 
         this.calculateSegments()
+        this.updateBehaviors()
     }
 
     this.move = function (x, y) {
@@ -925,7 +629,7 @@ function Shape(container) {
         this.handlers.forEach(function (handler) { handler.repaint() })
         this.segments.forEach(function (segment) { segment.repaint() })
 
-        if (this.isEditMode) {
+        if (this.isDrawHandlers) {
             this.segmentsContainer.setAttribute('visibility', 'visible')
             this.controlsContainer.setAttribute('visibility', 'visible')
         }
@@ -933,6 +637,20 @@ function Shape(container) {
             this.segmentsContainer.setAttribute('visibility', 'hidden')
             this.controlsContainer.setAttribute('visibility', 'hidden')
         }
+    }
+
+    this.setBahaviors = function (behaviors) {
+        this.behaviors = behaviors
+        this.updateBehaviors()
+    }
+
+    this.updateBehaviors = function () {
+        this.points.forEach((point) => point.updateBehavior())
+        this.handlers.forEach(handler => handler.updateBehavior())
+        this.segments.forEach(segment => segment.updateBehavior())
+        this.updateBehavior()
+
+        console.log('update behaviors')
     }
 
     this.selectPoint = function (point) {
@@ -955,42 +673,38 @@ function Shape(container) {
         })
 
         return {
+            fill: this.fill,
+            stroke: this.stroke,
+            strokeWidth: this.strokeWidth,
             points: pointsJSON
         }
     }
 
-    this.setEditMode = function (value) {
+    this.saveToSVG = function () {
+        this.repaintAll()
+        return this.shapeElement
+    }
+
+    this.setDrawHandlers = function (value) {
         this.points.forEach(function (p) { p.unselect() })
 
-        this.isEditMode = value
+        this.isDrawHandlers = value
         this.repaintAll()
     }
 
-    function handleEvents() {
-        const onClickBinded = onClick.bind(this)
+    this.updateBehavior = function () {
+        if (this.removeBehavior) this.removeBehavior()
+        this.removeBehavior = this.behaviors['shapes'].call(this, this.shapeElement)
+    }
 
-        this.container.addEventListener('click', onClickBinded)
-
-        function onClick(event) {
-            if (this.isDrawMode) return
-
-            if (this.container.contains(event.target) && this.container !== event.target) {
-                if (this.isEditMode) return
-                this.setEditMode(true)
-            } else {
-                if (!this.isEditMode) return
-                this.setEditMode(false)
-            }
-        }
-
-        return function () {
-            this.container.removeEventListener('click', onClickBinded)
-
-            this.points.forEach(function (point) { point.clear() })
-            this.handlers.forEach(function (handler) { handler.clear() })
-            this.segments.forEach(function (segment) { segment.clear() })
-            this.shapeElement.remove()
-        }
+    this.clear = function () {
+        if (this.removeBehavior) this.removeBehavior()
+        this.points.forEach(function (point) { point.clear() })
+        this.handlers.forEach(function (handler) { handler.clear() })
+        this.segments.forEach(function (segment) { segment.clear() })
+        this.shapeElement.remove()
+        this.controlsContainer.remove()
+        this.segmentsContainer.remove()
     }
 }
 
@@ -1042,6 +756,10 @@ function drawNewShape(shape, container) {
     container.append(drawContainer)
 
     shape.isDrawMode = true
+
+    shape.setFill('#f4a612')
+    shape.setStroke('#000')
+    shape.setStrokeWidth(3)
 
     function handleEvents() {
         container.addEventListener('click', onClick)
@@ -1100,69 +818,508 @@ function drawNewShape(shape, container) {
     handleEvents()
 }
 
+function pointEditBehavior(element) {
+    let lastX
+    let lastY
+    let lastPointX = this.coords[0]
+    let lastPointY = this.coords[1]
+
+    const onMouseUpBinded = onMouseUp.bind(this)
+    const onMouseMoveBinded = onMouseMove.bind(this)
+    const onMouseDownBinded = onMouseDown.bind(this)
+    const onDoubleClickBinded = onDoubleClick.bind(this)
+    const onKeyDownBinded = onKeyDown.bind(this)
+
+    element.addEventListener('mouseenter', onMouseEnter)
+    element.addEventListener('mouseleave', onMouseLeave)
+    document.addEventListener('keydown', onKeyDownBinded)
+
+    function onDoubleClick() {
+        document.addEventListener('mousedown', onMouseDownBinded)
+        document.addEventListener('mouseup', onMouseUpBinded)
+
+        document.removeEventListener('mousemove', onMouseMoveBinded)
+
+        this.toggleBezier()
+
+        this.shape.selectPoint(this)
+
+        this.controls.forEach(function (control) {
+            control.repaint()
+        })
+        this.segments.forEach(function (segment) { segment.repaint() })
+
+        this.shape.repaint()
+    }
+
+    function onKeyDown(event) {
+        if (!this.isSelected) return
+
+        if (event.key === 'Backspace' || event.key === 'Delete') {
+            this.shape.removePoint(this)
+        }
+    }
+
+    function onMouseEnter() {
+        document.addEventListener('mousedown', onMouseDownBinded)
+        document.addEventListener('mouseup', onMouseUpBinded)
+        element.addEventListener('dblclick', onDoubleClickBinded)
+    }
+
+    function onMouseLeave() {
+        document.removeEventListener('mousedown', onMouseDownBinded)
+        element.removeEventListener('dblclick', onDoubleClickBinded)
+    }
+
+    function onMouseDown() {
+        document.addEventListener('mousemove', onMouseMoveBinded)
+
+        lastPointX = this.coords[0]
+        lastPointY = this.coords[1]
+
+        if (!this.isSelected) {
+            this.shape.selectPoint(this)
+        }
+    }
+
+    function onMouseUp() {
+        document.removeEventListener('mousemove', onMouseMoveBinded)
+        document.removeEventListener('mouseup', onMouseUpBinded)
+
+        lastX = null
+        lastY = null
+
+        const isLastPoint = +this.pointElement.dataset['pointIndex'] === this.shape.points.length - 1
+
+        if (isLastPoint && !this.shape.isClosed) {
+            const firstPoint = this.shape.points[0]
+            const offset = 5
+
+            if (
+                this.coords[0] > firstPoint.coords[0] - offset
+                && this.coords[0] < firstPoint.coords[0] + offset
+                && this.coords[1] > firstPoint.coords[1] - offset
+                && this.coords[1] < firstPoint.coords[1] + offset
+            ) {
+                this.shape.removePoint(this)
+
+                this.shape.close()
+                this.shape.repaintAll()
+            }
+        }
+
+        if (this.coords[0] !== lastPointX || this.coords[1] !== lastPointY) {
+            console.log('movePointCommand', [lastPointX, lastPointY], this.coords)
+
+            lastPointX = this.coords[0]
+            lastPointY = this.coords[1]
+        }
+    }
+
+    function onMouseMove(event) {
+        if (lastX && lastY) {
+            let deltaX = event.clientX - lastX
+            let deltaY = event.clientY - lastY
+
+            this.move(deltaX, deltaY)
+            this.repaint()
+            this.controls.forEach(function (control) { control.repaint() })
+            this.segments.forEach(function (segment) { segment.repaint() })
+            this.shape.repaint()
+        }
+
+        lastX = event.clientX
+        lastY = event.clientY
+    }
+
+    return function () {
+        element.removeEventListener('mouseenter', onMouseEnter)
+        element.removeEventListener('mouseleave', onMouseLeave)
+        document.removeEventListener('mousedown', onMouseDownBinded)
+        document.removeEventListener('mousemove', onMouseMoveBinded)
+        document.removeEventListener('mouseup', onMouseUpBinded)
+        document.removeEventListener('dblclick', onDoubleClickBinded)
+        document.removeEventListener('keydown', onKeyDownBinded)
+    }
+}
+
+function handlerEditBehavior(element) {
+    element.addEventListener('mouseenter', onMouseEnter)
+    element.addEventListener('mouseleave', onMouseLeave)
+
+    let lastX
+    let lastY
+    let lastHandlerX
+    let lastHandlerY
+
+    const onMouseMoveBinded = onMouseMove.bind(this)
+    const onMouseDownBinded = onMouseDown.bind(this)
+    const onMouseUpBinded = onMouseUp.bind(this)
+
+    function onMouseEnter() {
+        document.addEventListener('mousedown', onMouseDownBinded)
+        document.addEventListener('mouseup', onMouseUpBinded)
+    }
+
+    function onMouseLeave() {
+        document.removeEventListener('mousedown', onMouseDownBinded)
+    }
+
+    function onMouseDown() {
+        document.addEventListener('mousemove', onMouseMoveBinded)
+
+        lastHandlerX = this.coords[0]
+        lastHandlerY = this.coords[1]
+    }
+
+    function onMouseUp() {
+        document.removeEventListener('mousemove', onMouseMoveBinded)
+        document.removeEventListener('mouseup', onMouseUpBinded)
+
+        lastX = null
+        lastY = null
+
+        if (this.coords[0] !== lastHandlerX || this.coords[1] !== lastHandlerY) {
+            console.log('moveHandlerCommand', [lastHandlerX, lastHandlerY], this.coords)
+
+            lastHandlerX = this.coords[0]
+            lastHandlerY = this.coords[1]
+        }
+    }
+
+    function onMouseMove(event) {
+        if (lastX && lastY) {
+            let deltaX = event.clientX - lastX
+            let deltaY = event.clientY - lastY
+
+            this.move(deltaX, deltaY)
+
+            if (this.isMirrorPosition) {
+                const control = this.point.controls.find(c => c !== this)
+
+                control.move(-deltaX, -deltaY)
+                control.repaint()
+            }
+
+            if (this.isMirrorAngle) {
+                const deltaVector = new Vector2([-deltaX, -deltaY])
+                if (deltaVector.magnitude() === 0) return
+
+                const control = this.point.controls.find(c => c !== this)
+                const radiusVector = Vector2.fromPoints(control.coords, this.point.coords)
+
+                const cos = radiusVector.dotProduct(deltaVector) / (radiusVector.magnitude() * deltaVector.magnitude())
+
+                const angle = Math.acos(cos)
+
+                console.log(cos, angle)
+
+                const rotatedVector = radiusVector.rotate(angle / 180 * Math.PI)
+
+                const moveVector = radiusVector.addVector(rotatedVector.reverse())
+
+                // control.move(moveVector.x, moveVector.y)
+                control.repaint()
+            }
+
+            this.repaint()
+            this.point.repaint()
+            this.point.segments.forEach(function (segment) { segment.repaint() })
+            this.shape.repaint()
+        }
+
+        lastX = event.clientX
+        lastY = event.clientY
+    }
+
+    return function () {
+        element.removeEventListener('mouseenter', onMouseEnter)
+        element.removeEventListener('mouseleave', onMouseLeave)
+        document.removeEventListener('mousedown', onMouseDownBinded)
+        document.removeEventListener('mousemove', onMouseMoveBinded)
+        document.removeEventListener('mouseup', onMouseUpBinded)
+    }
+}
+
+function segmentEditBehavior(element) {
+    element.addEventListener('mouseenter', onMouseEnter)
+    element.addEventListener('mouseleave', onMouseLeave)
+
+    let lastX
+    let lastY
+    let deltaSum = 0
+
+    const onMouseDragBinded = onMouseDrag.bind(this)
+    const onMouseDownBinded = onMouseDown.bind(this)
+    const onMouseUpBinded = onMouseUp.bind(this)
+
+    function onMouseEnter() {
+        document.addEventListener('mousedown', onMouseDownBinded)
+        document.addEventListener('mouseup', onMouseUpBinded)
+    }
+
+    function onMouseLeave() {
+        document.removeEventListener('mousedown', onMouseDownBinded)
+    }
+
+    function onMouseDown() {
+        document.addEventListener('mousemove', onMouseDragBinded)
+
+        if (!this.selected) {
+            this.shape.selectSegment(this)
+        }
+    }
+
+    function onMouseUp() {
+        document.removeEventListener('mousemove', onMouseDragBinded)
+        document.removeEventListener('mouseup', onMouseUpBinded)
+
+        if (deltaSum !== 0) {
+            console.log('segmentMoveCommand')
+            deltaSum = 0
+        }
+
+        lastX = null
+        lastY = null
+    }
+
+    function onMouseDrag(event) {
+        if (lastX && lastY) {
+            let deltaX = event.clientX - lastX
+            let deltaY = event.clientY - lastY
+
+            deltaSum += deltaX + deltaY
+
+            this.move(deltaX, deltaY)
+
+            this.points.forEach(function (point) {
+                point.repaint()
+                point.controls.forEach(function (control) {
+                    control.repaint()
+                })
+            })
+
+            this.shape.repaint(true)
+        }
+
+        lastX = event.clientX
+        lastY = event.clientY
+    }
+
+    const centerElement = this.centerElement
+    const onMouseDownBindedCenter = onMouseDownCenter.bind(this)
+
+    centerElement.addEventListener('mousedown', onMouseDownBindedCenter)
+
+    function onMouseDownCenter() {
+        const center = this.getCenter()
+        const point = this.shape.insertPointAfter(this.points[1], center[0], center[1])
+
+        if (this.points[0].isBezier || this.points[1].isBezier) {
+            point.toggleBezier()
+        }
+
+        this.shape.selectPoint(point)
+    }
+
+    return function () {
+        element.removeEventListener('mouseenter', onMouseEnter)
+        element.removeEventListener('mouseleave', onMouseLeave)
+        document.removeEventListener('mousedown', onMouseDownBinded)
+        document.removeEventListener('mouseup', onMouseUpBinded)
+        document.removeEventListener('mousemove', onMouseDragBinded)
+
+        centerElement.removeEventListener('mousedown', onMouseDownBindedCenter)
+    }
+}
+
+function shapeEditBehavior() {
+    const onClickBinded = onClick.bind(this)
+
+    this.container.addEventListener('click', onClickBinded)
+
+    function onClick(event) {
+        if (this.isDrawMode) return
+
+        if (this.container.contains(event.target) && this.container !== event.target) {
+            if (this.isDrawHandlers) return
+            this.setDrawHandlers(true)
+        } else {
+            if (!this.isDrawHandlers) return
+            this.setDrawHandlers(false)
+        }
+    }
+
+    return function () {
+        this.container.removeEventListener('click', onClickBinded)
+    }
+}
+
+const DEFAULT_EDITOR_OPTIONS = {
+    width: 600,
+    height: 800,
+    container: null,
+    points: {
+        fill: '#ffffff',
+        stroke: '#0000ff'
+    },
+    handlers: {
+        fill: '#00ff00',
+        stroke: '#00ff00',
+        line: '#0000ff'
+    },
+    segments: {
+        fill: 'transparent',
+        stroke: '#0000ff',
+    },
+    shape: {
+        fill: '#aaaaaa',
+        stroke: '#000000',
+    }
+}
+
+function Editor(options = DEFAULT_EDITOR_OPTIONS) {
+    options = { ...DEFAULT_EDITOR_OPTIONS, ...options }
+
+    this._container = options.container
+    this._width = options.width
+    this._height = options.height
+    this._mode = 'edit'
+
+    this._shapes = []
+
+    const rootEl = document.querySelector(':root')
+    function setRootProp(property, value) {
+        setCSSProperty(rootEl, property, value)
+    }
+
+    this.modes = {
+        draw: {
+            editor: () => { },
+            points: () => { },
+            segments: () => { },
+            handlers: () => { },
+            shapes: () => { }
+        },
+        edit: {
+            editor: () => { },
+            points: pointEditBehavior,
+            segments: segmentEditBehavior,
+            handlers: handlerEditBehavior,
+            shapes: shapeEditBehavior
+        }
+    }
+
+    function updateControlsStyles() {
+        setRootProp('--point-fill', options.points.fill)
+        setRootProp('--point-stroke', options.points.stroke)
+
+        setRootProp('--handler-fill', options.handlers.fill)
+        setRootProp('--handler-stroke', options.handlers.stroke)
+        setRootProp('--handler-line', options.handlers.line)
+
+        setRootProp('--segment-fill', options.segments.fill)
+        setRootProp('--segment-stroke', options.segments.stroke)
+    }
+
+    this.setBehaviors = function (behaviors) {
+        this.shapes.forEach(shape => [
+            shape.setBahaviors(behaviors)
+        ])
+    }
+
+    this.init = function () {
+        this.container.setAttribute('width', this.width)
+        this.container.setAttribute('height', this.height)
+
+        const behaviors = this.modes[this.mode]
+
+        const shape = new Shape(this.container)
+        this.shapes.push(shape)
+
+        this.setBehaviors(behaviors)
+
+        shape.addPoint(200, 200)
+        shape.addPoint(400, 200)
+        shape.addPoint(400, 400)
+        shape.addPoint(200, 400)
+
+        shape.repaintAll()
+
+        updateControlsStyles()
+    }
+
+    this.init()
+}
+
+Object.defineProperties(Editor.prototype, {
+    width: {
+        get() {
+            return this._width
+        },
+        set(value) {
+            this._width = value
+            this.container.setAttribute('width', value)
+        }
+    },
+    height: {
+        get() {
+            return this._height
+        },
+        set(value) {
+            this._height = value
+            this.container.setAttribute('height', value)
+        }
+    },
+    container: {
+        get() {
+            return this._container
+        }
+    },
+    shapes: {
+        get() {
+            return this._shapes
+        }
+    },
+    mode: {
+        get() {
+            return this._mode
+        },
+        set(value) {
+            this._mode = value
+            const behaviors = this.modes[value]
+
+            this.setBehaviors(behaviors)
+        }
+    }
+})
+
+
 function t_shapes__init() {
     const svgElement = document.querySelector('.js-svg')
 
     const svgElementRect = svgElement.getBoundingClientRect()
 
-    const width = 1000
-    const height = 1000
+    const width = 800
+    const height = 800
 
-    svgElement.setAttribute('width', width)
-    svgElement.setAttribute('height', height)
-
-    let shape = new Shape(svgElement)
-
-    drawNewShape(shape, svgElement)
-
-    const drawNewButton = document.querySelector('.js-drawNewShape')
-
-    drawNewButton.addEventListener('click', () => {
-        shape.clear()
-        shape = new Shape(svgElement)
-        drawNewShape(shape, svgElement)
+    const editor = new Editor({
+        width,
+        height,
+        container: svgElement,
     })
 
-    // shape.addPoint(450, 450)
-    // shape.addPoint(550, 450)
-    // shape.addPoint(550, 550)
-    // shape.addPoint(450, 550)
+    const drawModeButton = document.querySelector('.js-drawNewShape')
 
-    // shape.close()
+    drawModeButton.addEventListener('click', () => {
+        editor.mode = 'draw'
+    })
 
-    // // stressTest(shape)
+    const editModeButton = document.querySelector('.js-editMode')
 
-    // // shape.close()
-
-    // shape.points.forEach(p => p.toggleBezier())
-
-    // shape.repaintAll()
-    // shape.initalDraw()
-
-    // let mult = 1
-
-    // setInterval(() => {
-    //     AUTO_HANDLERS_MULTIPLIER += 0.1 * mult
-
-    //     shape.points.forEach(p => p.autoHandlers())
-
-    //     shape.repaintAll()
-
-    //     if (AUTO_HANDLERS_MULTIPLIER > 20) mult = -1
-    //     if (AUTO_HANDLERS_MULTIPLIER < -20) mult = 1
-    // }, 20);
-
-    const hueInput = document.querySelector('.js-hue')
-
-    hueInput.addEventListener('input', onHueInput)
-
-    function onHueInput(event) {
-        shape.setFill(`hsl(${event.target.value}, 100%, 50%)`)
-    }
-
-    shape.setFill('#f4a612')
-    shape.setStroke('#000')
-    shape.setStrokeWidth(3)
+    editModeButton.addEventListener('click', () => {
+        editor.mode = 'edit'
+    })
 }
 
 window.addEventListener('DOMContentLoaded', t_shapes__init)
