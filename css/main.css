@@ -74,9 +74,6 @@ body {
     stroke: rgb(0, 174, 255);
 }
 
-
-
-
 .controls-container *[data-control-type="segment"]:hover {
     opacity: 0.4;
 }
