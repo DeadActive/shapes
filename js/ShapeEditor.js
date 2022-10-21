@@ -1,5 +1,5 @@
 import ActionManager from "./actions/ActionManager.js"
-import Editor from "./Editor.js"
+import Editor from "./editor.js"
 import Select from "./Select.js"
 import Toolbar from "./Toolbar.js"
 import { emitter } from "./utils/index.js"
