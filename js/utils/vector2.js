@@ -1,4 +1,4 @@
-function Vector2(coords) {
+export default function Vector2(coords) {
     this.x = coords[0]
     this.y = coords[1]
 

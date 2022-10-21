@@ -1,254 +1,161 @@
-const DEFAULT_EDITOR_OPTIONS = {
-    width: 600,
-    height: 800,
-    container: null,
-    points: {
-        fill: '#ffffff',
-        stroke: '#0000ff'
-    },
-    handlers: {
-        fill: '#00ff00',
-        stroke: '#00ff00',
-        line: '#0000ff'
-    },
-    segments: {
-        fill: 'transparent',
-        stroke: '#0000ff',
-    },
-    shape: {
-        fill: '#aaaaaa',
-        stroke: '#000000',
-    }
-}
+import Shape from './entities/Shape.js'
+import { Svg, SvgCircle, SvgGroup } from './svg/index.js'
+import { arrayFlatten, emitter } from './utils/index.js'
 
-function Editor(options = DEFAULT_EDITOR_OPTIONS) {
-    options = { ...DEFAULT_EDITOR_OPTIONS, ...options }
+export default class Editor {
+    constructor(container) {
+        this.container = container
 
-    this._container = options.container
-    this._width = options.width
-    this._height = options.height
-    this._mode = 'draw'
+        this.shapes = []
+        this._mode = ''
+        this.defaultColors = {
+            fill: {
+                color: '#E2E2E2',
+                opacity: 1
+            },
+            stroke: {
+                color: '#000000',
+                opacity: 1
+            }
+        }
+        this.defaultStrokeWidth = 1
 
-    this._shapes = []
-
-    this._commandManager = new CommandManager(this)
-
-    this.drawContainer = createSVGElement('g')
-
-    const rootEl = document.querySelector(':root')
-    function setRootProp(property, value) {
-        setCSSProperty(rootEl, property, value)
+        this.setupContainers()
     }
 
-    function updateControlsStyles() {
-        setRootProp('--point-fill', options.points.fill)
-        setRootProp('--point-stroke', options.points.stroke)
+    setupContainers() {
+        this.containers = {}
 
-        setRootProp('--handler-fill', options.handlers.fill)
-        setRootProp('--handler-stroke', options.handlers.stroke)
-        setRootProp('--handler-line', options.handlers.line)
+        this.containers.pathContainer = new SvgGroup({ name: 'paths', id: 'paths' })
 
-        setRootProp('--segment-fill', options.segments.fill)
-        setRootProp('--segment-stroke', options.segments.stroke)
+        this.containers.pointControlsContainer = new SvgGroup({ name: 'points', id: 'points' })
+        this.containers.handlerControlsContainer = new SvgGroup({ name: 'handlers', id: 'handlers' })
+        this.containers.pathControlsContainer = new SvgGroup({ name: 'pathControls', id: 'pathControls' })
+        this.containers.segmentControlsContainer = new SvgGroup({ name: 'segments', id: 'segments' })
+
+        this.containers.controlsContainer = new SvgGroup({ name: 'controls', id: 'controls' })
+        this.containers.controlsContainer.addChild(this.containers.pathControlsContainer)
+        this.containers.controlsContainer.addChild(this.containers.segmentControlsContainer)
+        this.containers.controlsContainer.addChild(this.containers.pointControlsContainer)
+        this.containers.controlsContainer.addChild(this.containers.handlerControlsContainer)
+
+        this.containers.drawContainer = new SvgGroup({ name: 'draw', id: 'draw' })
+        this.ghostPoint = new SvgCircle({
+            x: -9999,
+            y: -9999,
+            name: 'ghostPoint',
+            id: 'ghostPoint',
+            attrs: {
+                r: 5,
+                fill: '#ffffff',
+                stroke: '#0000ff',
+                opacity: 0.5
+            }
+        })
+
+        this.containers.drawContainer.addChild(this.ghostPoint)
+
+        this.svg = new Svg(this.container)
+        this.svg.addChild(this.containers.pathContainer)
+        this.svg.addChild(this.containers.controlsContainer)
+        this.svg.addChild(this.containers.drawContainer)
+
+        this.mode = 'select'
     }
 
-    this.createShape = function () {
-        const shape = new Shape(this.container, this.shapes.length)
+    unselectAll() {
+        this.shapes.forEach(s => s.unselectAll())
+    }
 
-        this.commandManager.save(this.removeShape, [shape], this)
+    addShape() {
+        const shape = new Shape(this.containers, {
+            attrs: {
+                fill: this.defaultColors.fill.color,
+                'fill-opacity': this.defaultColors.fill.opacity,
+                stroke: this.defaultColors.stroke.color,
+                'stroke-opacity': this.defaultColors.stroke.opacity,
+                'stroke-width': this.defaultStrokeWidth
+            }
+        }, this.shapes.length)
 
         this.shapes.push(shape)
 
         return shape
     }
 
-    this.removeShapeIndex = function (index) {
-        const shape = this.shapes[index]
-
-        if (shape === void 0) return
-        shape.clear()
-
-        this.shapes.splice(index, 1)
+    sendShapeToFront(shape) {
+        shape.zIndex = 0
+        this.containers.pathContainer.reorder()
     }
 
-    this.removeShape = function (shape) {
-        if (shape === void 0) return
-
-        const shapeIndex = this.shapes.findIndex((shp) => shp === shape)
-        if (shapeIndex === -1) return
-
-        this.removeShapeIndex(shapeIndex)
+    sendShapeToBack(shape) {
+        shape.zIndex = this.shapes.length - 1
+        this.containers.pathContainer.reorder()
     }
 
-    this.init = function () {
-        this.container.setAttribute('width', this.width)
-        this.container.setAttribute('height', this.height)
+    getControlById(id) {
+        let result = null
 
-        this.drawContainer.classList.toggle('draw-container', true)
-        this.container.append(this.drawContainer)
+        for (let index = 0; index < this.shapes.length; index++) {
+            const shape = this.shapes[index];
 
-        this.clearEvents = this.handleEvents()
-
-        updateControlsStyles()
-    }
-
-    this.saveToJSON = function () {
-        const shapes = []
-
-        this.shapes.forEach(shape => {
-            shapes.push(shape.saveToJSON())
-        })
-
-        return JSON.stringify(shapes)
-    }
-
-    this.loadFromJSON = function (json) {
-        const shapes = JSON.parse(json)
-
-        shapes.forEach(shapeSettings => {
-            const shape = this.createShape()
-            shape.loadFromJSON(shapeSettings)
-
-            shape.points.forEach(
-                (p) => p.select()
-            )
-        })
-    }
-
-    function handleDragEvents(container, dragStart, dragging, dragEnd) {
-        let isDragging = false
-        let isMouseDown = false
-        let lastPointerEvent = null
-
-        function onMouseDown(event) {
-            isMouseDown = true
+            result = shape.getControlById(id)
+            if (result) return result
         }
 
-        function onMouseUp(event) {
-            if (isDragging) dragEnd(event)
+        return result
+    }
 
-            isDragging = false
-            isMouseDown = false
-            lastPointerEvent = null
+    getControlsInsideBox(box) {
+        const result = this.shapes.map(s =>
+            s.getControlsInsideBox(box)
+        )
+
+        return arrayFlatten(result)
+    }
+
+    getShapeByControlId(id) {
+        let result = null
+
+        for (let index = 0; index < this.shapes.length; index++) {
+            const shape = this.shapes[index];
+
+            result = shape.getControlById(id)
+            if (result) return shape
         }
 
-        function onMouseMove(event) {
-            if (isMouseDown && lastPointerEvent === null) {
-                dragStart(event)
-                isDragging = true
-            }
+        return result
+    }
 
-            if (isDragging) {
-                if (lastPointerEvent === null) lastPointerEvent = event
-                dragging(lastPointerEvent, event)
-                lastPointerEvent = event
-            }
-        }
-
-        container.addEventListener('mousedown', onMouseDown)
-        container.addEventListener('mouseup', onMouseUp)
-        document.addEventListener('mousemove', onMouseMove)
-
-        return function () {
-            container.removeEventListener('mousedown', onMouseDown)
-            container.removeEventListener('mouseup', onMouseUp)
-            document.removeEventListener('mousemove', onMouseMove)
+    onModeChange() {
+        if (this.mode === 'draw') {
+            console.log('draw')
+            this.shapes.forEach(s => {
+                s.pointControls.forEach(p => p.setVisible(true))
+            })
+            this.repaint()
         }
     }
 
-    function pathGet(object, path, index) {
-        if (!object || !path || !index) return
-        const route = path.split('.')
-        if (route.length < 1) return
-        if (route.length === 1) return object[path][index]
-        return route.reduce((a, current) => {
-            return a[current]
-        }, object)[index]
+    repaint() {
+        Object.values(this.containers).forEach(c => c.repaint())
+        this.shapes.forEach(s => s.update())
     }
 
-    this.handleEvents = function () {
-        const dragStart = onDragStart.bind(this)
-        const dragging = onDragging.bind(this)
-        const dragEnd = onDragEnd.bind(this)
-        const mouseDown = onMouseDown.bind(this)
+    setMode(value) {
+        emitter.emit('modechange', value, this._mode)
 
-        const clearDragHandlers = handleDragEvents(this.container, dragStart, dragging, dragEnd)
-        this.container.addEventListener('mousedown', mouseDown)
+        this._mode = value
+        this.svg.el.dataset.mode = value
 
-        let currentTarget = null
-
-        function onMouseDown(event) {
-            console.log(event.target.dataset['controlType'])
-        }
-
-        function onDragStart(event) {
-            currentTarget = event.target
-        }
-
-        function onDragging(lastEvent, event) {
-            const path = currentTarget.dataset['controlPath']
-            const index = currentTarget.dataset['index']
-
-            if (path && index) {
-                const object = pathGet(this, path, index)
-
-                console.log(object)
-            }
-        }
-
-        function onDragEnd(event) {
-            currentTarget = null
-        }
-
-        return function () {
-            clearDragHandlers()
-            this.container.removeEventListener('mousedown', mouseDown)
-        }
+        this.onModeChange()
     }
 
-    this.init()
+    get mode() {
+        return this._mode
+    }
+
+    set mode(value) {
+        this.setMode(value)
+    }
 }
-
-Object.defineProperties(Editor.prototype, {
-    width: {
-        get() {
-            return this._width
-        },
-        set(value) {
-            this._width = value
-            this.container.setAttribute('width', value)
-        }
-    },
-    height: {
-        get() {
-            return this._height
-        },
-        set(value) {
-            this._height = value
-            this.container.setAttribute('height', value)
-        }
-    },
-    container: {
-        get() {
-            return this._container
-        }
-    },
-    shapes: {
-        get() {
-            return this._shapes
-        }
-    },
-    mode: {
-        get() {
-            return this._mode
-        },
-        set(value) {
-            this._mode = value
-        }
-    },
-    commandManager: {
-        get() {
-            return this._commandManager
-        }
-    }
-})
