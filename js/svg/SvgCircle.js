@@ -1,7 +1,7 @@
-import { SvgElement } from "./SvgElement.js"
+import SvgElement from "./SvgElement.js";
 
-export class SvgCircle extends SvgElement {
-    constructor(config) {
+export default class SvgCircle extends SvgElement {
+    constructor(x, y, svgConfig) {
         super({
             name: 'circle',
             tag: 'circle',
@@ -11,27 +11,39 @@ export class SvgCircle extends SvgElement {
                 'stroke-width': 1,
                 r: 5,
             },
-            ...config
+            ...svgConfig
         })
 
-        this.x = config.x || 0
-        this.y = config.y || 0
+        this.moveTo(x, y)
+    }
+
+    setX(x) {
+        this.x = x
+        this.setAttr('cx', x)
+    }
+
+    setY(y) {
+        this.y = y
+        this.setAttr('cy', y)
     }
 
     move(dx, dy) {
         this.x += dx
         this.y += dy
+
+        this.setAttrsBatch({
+            cx: this.x,
+            cy: this.y
+        })
     }
 
     moveTo(x, y) {
         this.x = x
         this.y = y
-    }
 
-    repaint() {
-        this.attrs.cx = this.x
-        this.attrs.cy = this.y
-
-        super.repaint()
+        this.setAttrsBatch({
+            cx: this.x,
+            cy: this.y
+        })
     }
 }

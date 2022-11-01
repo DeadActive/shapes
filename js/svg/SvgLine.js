@@ -1,25 +1,21 @@
-import { SvgElement } from "./SvgElement.js";
+import SvgRectangle from "./SvgRectangle.js";
 
-export default class SvgLine extends SvgElement {
-    constructor(start, end, config) {
-        super({
+export default class SvgLine extends SvgRectangle {
+    constructor(x, y, ex, ey, svgConfig) {
+        super(x, y, ex, ey, {
             name: 'line',
             tag: 'path',
             attrs: {
                 fill: 'transparent',
                 stroke: '#0000ff',
-                'stroke-width': 1
+                'stroke-width': 1,
             },
-            ...config
+            ...svgConfig
         })
-
-        this.start = start
-        this.end = end
     }
 
-    repaint() {
-        this.attrs.d = `M ${this.start[0]} ${this.start[1]} L ${this.end[0]} ${this.end[1]}`
-
-        super.repaint()
+    update() {
+        const { x, y, ex, ey } = this
+        this.setAttr('d', `M ${x} ${y} L ${ex} ${ey}`)
     }
 }

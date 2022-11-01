@@ -1,63 +1,48 @@
+import Control from "../core/Control.js";
 import SvgSegment from "../svg/SvgSegment.js";
-import { distance, calculateBezier } from "../utils/index.js";
-import Control from "./Control.js";
 
 export default class SegmentControl extends Control {
-    constructor(points, options) {
-        const svgEl = new SvgSegment(
-            points.map(p => p.pathPoint),
-            {
-                name: 'segmentControl',
-                attrs: {
-                    fill: 'transparent',
-                    stroke: '#0597ff',
-                    'stroke-width': 5
-                }
-            })
+    constructor(pathSegment, pointControls, collection, layer, options) {
+        const svgElement = new SvgSegment(pathSegment, {
+            name: 'segmentControl',
+            attrs: {
+                fill: 'transparent',
+                stroke: '#0597ff',
+                'stroke-width': 5
+            },
+            ...options?.element
+        })
 
-        super({ svgEl, options })
-        this.points = points
+        super(pathSegment, svgElement, collection, options?.control)
+
+        this.pointControls = pointControls
+        this.layer = layer
+
+        this.pathElement.bindElement(this)
+        // console.log(this.pathElement)
     }
 
-    move(dx, dy) {
-        super.move(dx, dy)
-    }
+    bend(dx, dy) {
+        const leftPoint = this.pathElement.pathPoints[0]
+        const rightPoint = this.pathElement.pathPoints[1]
 
-    setVisible(value) {
-        this.svgEl.style.display = value ? 'block' : 'none'
-    }
+        leftPoint.isBezier = true
+        rightPoint.isBezier = true
 
-    getLength() {
-        const LUT = this.getLUT(10)
+        leftPoint.controls[1].move(dx, dy, leftPoint.controls[1].mode === 'mirrorAll')
+        rightPoint.controls[0].move(dx, dy, rightPoint.controls[0].mode === 'mirrorAll')
 
-        let length = 0
-
-        for (let index = 0; index < LUT.length - 1; index++) {
-            const point = LUT[index];
-            const nextPoint = LUT[index + 1]
-
-            length += distance(point, nextPoint)
+        if (leftPoint.controls[1].mode !== 'mirrorAll') {
+            leftPoint.controls[0].mode = 'default'
+            leftPoint.controls[1].mode = 'default'
         }
-
-        return length
+        if (rightPoint.controls[0].mode !== 'mirrorAll') {
+            rightPoint.controls[0].mode = 'default'
+            rightPoint.controls[1].mode = 'default'
+        }
     }
 
-    getLUT(steps) {
-        if (steps <= 0) return
-
-        const increment = 1.0 / steps
-        let t = 0
-
-        const LUT = new Array(steps)
-
-        const point = this.points[0].pathPoint
-        const nextPoint = this.points[1].pathPoint
-
-        for (let index = 0; index < steps; index++) {
-            LUT[index] = calculateBezier(t, point.coords, point.controls[1].coords, nextPoint.controls[0].coords, nextPoint.coords)
-            t += increment
-        }
-
-        return LUT
+    update() {
+        this.svgElement.update()
     }
 }

@@ -1,13 +1,19 @@
-import Shape from './entities/Shape.js'
-import { Svg, SvgCircle, SvgGroup } from './svg/index.js'
-import { arrayFlatten, emitter } from './utils/index.js'
+import LayerControl from "./controls/LayerControl.js"
+import SegmentControl from "./controls/SegmentControl.js"
+import ControlCollection from "./core/ControlCollection.js"
+import PathControl from "./svg/path/PathControl.js"
+import PathPoint from "./svg/path/PathPoint.js"
+import PathSegment from "./svg/path/PathSegment.js"
+import Svg from "./svg/Svg.js"
+import SvgGroup from "./svg/SvgGroup.js"
+import SvgSegment from "./svg/SvgSegment.js"
+import { arrayFlatten, emitter } from "./utils/index.js"
 
 export default class Editor {
-    constructor(container) {
+    constructor(container, stateMachine) {
         this.container = container
+        this.stateMachine = stateMachine
 
-        this.shapes = []
-        this._mode = ''
         this.defaultColors = {
             fill: {
                 color: '#E2E2E2',
@@ -21,141 +27,136 @@ export default class Editor {
         this.defaultStrokeWidth = 1
 
         this.setupContainers()
+        this.setupCollections()
+        this.handleEvents()
+    }
+
+    createLayer() {
+        const layer = new LayerControl(this.collections, {
+            path: {
+                attrs: {
+                    fill: this.defaultColors.fill.color,
+                    'fill-opacity': this.defaultColors.fill.opacity,
+                    stroke: this.defaultColors.stroke.color,
+                    'stroke-opacity': this.defaultColors.stroke.opacity,
+                    'stroke-width': this.defaultStrokeWidth
+                }
+            }
+        })
+        this.layersContainer.addChild(layer.path)
+        return layer
+    }
+
+    addLayer(layerControl) {
+        this.layersContainer.addChild(layerControl.path)
+        layerControl.path.update()
+        console.log(layerControl.path)
+        return layerControl
+    }
+
+    addLayers(layers) {
+        layers.forEach(l => {
+            this.addLayer(l)
+        })
+    }
+
+    setRootElementMode(state) {
+        this.rootContainer.el.dataset.mode = state.name
+    }
+
+    handleEvents() {
+        emitter.on('stateChange', this.setRootElementMode.bind(this))
+        this.setRootElementMode(this.stateMachine.currentState)
+    }
+
+    // setupGradient(){
+    //     const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs')
+    //     const handlerGradient = document.createElementNS('http://www.w3.org/2000/svg', 'radialGradient')
+
+    //     handlerGradient.id = 'handlerGradient'
+    //     handlerGradient.setAttribute('gradientTransform', 'gradientTransform="translate(-0.5 -0.5) scale(2, 2)"')
+    //     handlerGradient.innerHTML = `
+    //     <stop offset="0%" stop-color="#ffffff"></stop>
+    //     `
+    // }
+
+    setupDrawContainer() {
+        this.drawContainer = new SvgGroup({}, { name: 'draw', id: 'draw' })
+        this.rootContainer.addChild(this.drawContainer)
+
+        const startLeftControl = new PathControl([0, 0], null, null)
+        const startRightControl = new PathControl([0, 0], null, startLeftControl)
+        startLeftControl.bindSibling(startRightControl)
+        const startPoint = new PathPoint([0, 0], [startLeftControl, startRightControl], null, false)
+
+        const endLeftControl = new PathControl([0, 0], null, null)
+        const endRightControl = new PathControl([0, 0], null, endLeftControl)
+        endLeftControl.bindSibling(endRightControl)
+        const endPoint = new PathPoint([0, 0], [endLeftControl, endRightControl], null, false)
+
+        const pathSegment = new PathSegment([startPoint, endPoint], null)
+        const segment = new SvgSegment(pathSegment)
+
+        this.drawContainer.addChild(segment)
+
+        this.drawGuide = {
+            segment,
+            startPoint,
+            endPoint
+        }
     }
 
     setupContainers() {
-        this.containers = {}
+        this.rootContainer = new Svg(this.container)
+        this.controlsContainer = new SvgGroup({}, { name: 'controls', id: 'controls' })
 
-        this.containers.pathContainer = new SvgGroup({ name: 'paths', id: 'paths' })
+        this.layersControlsContainer = new SvgGroup({}, { name: 'layers', id: 'layersControls' })
+        this.pointsContainer = new SvgGroup({}, { name: 'points', id: 'points' })
+        this.handlersContainer = new SvgGroup({}, { name: 'handlers', id: 'handlers' })
+        this.segmentsContainer = new SvgGroup({}, { name: 'segments', id: 'segments' })
 
-        this.containers.pointControlsContainer = new SvgGroup({ name: 'points', id: 'points' })
-        this.containers.handlerControlsContainer = new SvgGroup({ name: 'handlers', id: 'handlers' })
-        this.containers.pathControlsContainer = new SvgGroup({ name: 'pathControls', id: 'pathControls' })
-        this.containers.segmentControlsContainer = new SvgGroup({ name: 'segments', id: 'segments' })
+        this.layersContainer = new SvgGroup({}, { name: 'layers', id: 'layers' })
 
-        this.containers.controlsContainer = new SvgGroup({ name: 'controls', id: 'controls' })
-        this.containers.controlsContainer.addChild(this.containers.pathControlsContainer)
-        this.containers.controlsContainer.addChild(this.containers.segmentControlsContainer)
-        this.containers.controlsContainer.addChild(this.containers.pointControlsContainer)
-        this.containers.controlsContainer.addChild(this.containers.handlerControlsContainer)
+        this.controlsContainer.addChild(this.segmentsContainer)
+        this.controlsContainer.addChild(this.pointsContainer)
+        this.controlsContainer.addChild(this.handlersContainer)
+        this.controlsContainer.addChild(this.layersControlsContainer)
 
-        this.containers.drawContainer = new SvgGroup({ name: 'draw', id: 'draw' })
-        this.ghostPoint = new SvgCircle({
-            x: -9999,
-            y: -9999,
-            name: 'ghostPoint',
-            id: 'ghostPoint',
-            attrs: {
-                r: 5,
-                fill: '#ffffff',
-                stroke: '#0000ff',
-                opacity: 0.5
-            }
-        })
-
-        this.containers.drawContainer.addChild(this.ghostPoint)
-
-        this.svg = new Svg(this.container)
-        this.svg.addChild(this.containers.pathContainer)
-        this.svg.addChild(this.containers.controlsContainer)
-        this.svg.addChild(this.containers.drawContainer)
-
-        this.mode = 'select'
+        this.rootContainer.addChild(this.layersContainer)
+        this.rootContainer.addChild(this.controlsContainer)
+        this.setupDrawContainer()
     }
 
-    unselectAll() {
-        this.shapes.forEach(s => s.unselectAll())
+    setupCollections() {
+        this.layersControlsCollection = new ControlCollection(this, this.layersControlsContainer)
+        this.pointsCollection = new ControlCollection(this, this.pointsContainer)
+        this.handlersCollection = new ControlCollection(this, this.handlersContainer)
+        this.segmentsCollection = new ControlCollection(this, this.segmentsContainer)
+
+        this.collections = {
+            layersCollection: this.layersControlsCollection,
+            handlersCollection: this.handlersCollection,
+            pointsCollection: this.pointsCollection,
+            segmentsCollection: this.segmentsCollection
+        }
     }
 
-    addShape() {
-        const shape = new Shape(this.containers, {
-            attrs: {
-                fill: this.defaultColors.fill.color,
-                'fill-opacity': this.defaultColors.fill.opacity,
-                stroke: this.defaultColors.stroke.color,
-                'stroke-opacity': this.defaultColors.stroke.opacity,
-                'stroke-width': this.defaultStrokeWidth
-            }
-        }, this.shapes.length)
-
-        this.shapes.push(shape)
-
-        return shape
+    getControlsInBox(box, collections) {
+        return arrayFlatten(collections.map(collection => collection.getControlsInsindeBox(box)))
     }
 
-    sendShapeToFront(shape) {
-        shape.zIndex = 0
-        this.containers.pathContainer.reorder()
-    }
-
-    sendShapeToBack(shape) {
-        shape.zIndex = this.shapes.length - 1
-        this.containers.pathContainer.reorder()
-    }
-
-    getControlById(id) {
+    getControlById(id, collections) {
         let result = null
 
-        for (let index = 0; index < this.shapes.length; index++) {
-            const shape = this.shapes[index];
-
-            result = shape.getControlById(id)
+        for (let i = 0; i < collections.length; i++) {
+            const collection = collections[i];
+            result = collection.getControlById(id)
             if (result) return result
         }
-
-        return result
     }
 
-    getControlsInsideBox(box) {
-        const result = this.shapes.map(s =>
-            s.getControlsInsideBox(box)
-        )
-
-        return arrayFlatten(result)
-    }
-
-    getShapeByControlId(id) {
-        let result = null
-
-        for (let index = 0; index < this.shapes.length; index++) {
-            const shape = this.shapes[index];
-
-            result = shape.getControlById(id)
-            if (result) return shape
-        }
-
-        return result
-    }
-
-    onModeChange() {
-        if (this.mode === 'draw') {
-            console.log('draw')
-            this.shapes.forEach(s => {
-                s.pointControls.forEach(p => p.setVisible(true))
-            })
-            this.repaint()
-        }
-    }
-
-    repaint() {
-        Object.values(this.containers).forEach(c => c.repaint())
-        this.shapes.forEach(s => s.update())
-    }
-
-    setMode(value) {
-        emitter.emit('modechange', value, this._mode)
-
-        this._mode = value
-        this.svg.el.dataset.mode = value
-
-        this.onModeChange()
-    }
-
-    get mode() {
-        return this._mode
-    }
-
-    set mode(value) {
-        this.setMode(value)
+    getLayerControlById(id) {
+        const path = this.layersContainer.getChildById(id)
+        return this.layersControlsCollection.controls.find(l => l.path === path)
     }
 }

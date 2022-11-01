@@ -4,108 +4,36 @@
         <meta charset="UTF-8" />
         <meta http-equiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Document</title>
-        <link rel="stylesheet" href="./css/main.css" />
+        <title>NEW</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;700&display=swap"
+            rel="stylesheet"
+        />
         <link rel="stylesheet" href="./css/jquery.minicolors.css" />
+        <link rel="stylesheet" href="./css/main.css" />
         <style>
             body {
                 padding: 0;
                 margin: 0;
             }
-
-            /* svg[data-mode='select'] g[data-svg-name='points'],
-            svg[data-mode='select'] g[data-svg-name='handlers'] {
-                display: none;
-            }
-
-            svg[data-mode='edit'] g[data-svg-name='points'],
-            svg[data-mode='edit'] g[data-svg-name='handlers'] {
-                display: block;
-            } */
         </style>
     </head>
     <body>
         <div class="tn-shape__editor"></div>
-
+        <!-- <script src="./js/vendor/svg-path-commander.es5.min.js"></script> -->
         <script src="./js/vendor/jquery-3.6.1.min.js"></script>
         <script src="./js/vendor/jquery.minicolors.min.js"></script>
 
         <script type="module">
-            import ShapeEditor from './js/ShapeEditor.js';
+            import init from './js/index.js';
 
-            function init() {
-                const container = document.querySelector('.tn-shape__editor');
+            document.addEventListener('DOMContentLoaded', () => {
+                const svg = document.querySelector('.tn-shape__editor');
 
-                const shapeEditor = new ShapeEditor(container);
-
-                const editor = shapeEditor.editor;
-
-                editor.addShape();
-                editor.shapes[0].addPoint(
-                    [500, 500],
-                    [
-                        [500, 600],
-                        [500, 600],
-                    ]
-                );
-                editor.shapes[0].addPoint(
-                    [500, 500],
-                    [
-                        [500, 600],
-                        [600, 600],
-                    ]
-                );
-                editor.shapes[0].addPoint(
-                    [1000, 500],
-                    [
-                        [800, 400],
-                        [800, 700],
-                    ]
-                );
-                editor.shapes[0].addPoint(
-                    [1000, 800],
-                    [
-                        [900, 700],
-                        [650, 900],
-                    ]
-                );
-
-                editor.shapes[0].removePoint(editor.shapes[0].pointControls[0]);
-
-                // editor.shapes[0].pointControls[0].move(200, 100);
-                editor.shapes[0].pointControls[1].move(0, -100);
-
-                editor.shapes[0].closePath();
-
-                editor.addShape();
-                editor.shapes[1].addPoint(
-                    [1000, 1000],
-                    [
-                        [500, 800],
-                        [1200, 1150],
-                    ]
-                );
-                editor.shapes[1].addPoint(
-                    [900, 850],
-                    [
-                        [520, 810],
-                        [1337, 998],
-                    ]
-                );
-                editor.shapes[1].addPoint(
-                    [1100, 670],
-                    [
-                        [760, 932],
-                        [888, 777],
-                    ]
-                );
-
-                editor.repaint();
-
-                console.log(editor);
-            }
-
-            document.addEventListener('DOMContentLoaded', init);
+                init(svg);
+            });
         </script>
     </body>
 </html>

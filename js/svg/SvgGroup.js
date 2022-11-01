@@ -1,48 +1,10 @@
-import { SvgElement } from "./SvgElement.js"
+import SvgCollection from "./SvgCollection.js";
 
-export class SvgGroup extends SvgElement {
-    constructor(config) {
-        super({
-            name: 'group',
+export default class SvgGroup extends SvgCollection {
+    constructor(options, svgConfig) {
+        super(options, {
             tag: 'g',
-            ...config
+            ...svgConfig
         })
-
-        this.children = config?.children || new Set()
     }
-
-    addChild(child) {
-        this.children.add(child)
-        this.el.append(child.el)
-    }
-
-    removeChild(child) {
-        this.children.delete(child)
-        child.el.remove()
-    }
-
-    clear() {
-        this.children.forEach(c => c.el.remove())
-        this.children.clear()
-    }
-
-    getChildById(id) {
-        return [...this.children].find(c => c.id === id)
-    }
-
-    repaint() {
-        this.children.forEach(c => c.repaint())
-
-        super.repaint()
-    }
-
-    reorder() {
-        this.children.forEach(c => c.el.remove())
-
-        const zSortedChildren = [...this.children].sort((a, b) => a.zIndex - b.zIndex)
-
-        console.log(zSortedChildren)
-
-        zSortedChildren.forEach(c => this.el.append(c.el))
-    }
-}
+} 

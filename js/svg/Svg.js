@@ -1,50 +1,21 @@
-import { SvgElement } from './SvgElement.js'
+import SvgCollection from "./SvgCollection.js";
 
-export class Svg extends SvgElement {
-    constructor(container, options) {
+export default class Svg extends SvgCollection {
+    constructor(container, options, svgConfig) {
         const containerRect = container.getBoundingClientRect()
 
-        super({
+        super(options, {
             tag: 'svg',
             name: 'svg',
+            id: 'root',
             attrs: {
                 width: containerRect.width,
                 height: containerRect.height
             },
-            ...options
+            ...svgConfig
         })
 
         this.container = container
-        this.children = new Set()
-
         this.container.append(this.el)
-        this.repaint()
     }
-
-    addChild(child) {
-        this.children.add(child)
-        this.el.append(child.el)
-
-        this.repaint()
-    }
-
-    removeChild(child) {
-        if (child === void 0) return
-
-        this.children.delete(child)
-        this.child.el.remove()
-
-        this.repaint()
-    }
-
-    getChildById(id) {
-        return [...this.children].find(c => c.id === id)
-    }
-
-    repaint() {
-        super.repaint()
-        this.children.forEach(c => c.repaint())
-    }
-
-
 }

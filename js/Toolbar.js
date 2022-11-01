@@ -1,5 +1,139 @@
-import PathControl from "./controls/PathControl.js"
 import { emitter } from "./utils/index.js"
+import LayerControl from './controls/LayerControl.js'
+
+const HELP_HTML = `
+                <div class="tn-shape__help-grid">
+                    <div class="tn-shape__help-shortcuts">
+                        <div class="tn-shape__help-title">Shortcuts</div>
+                        <div class="tn-shape__help-item">
+                            <span class="tn-shape__help-item-name"
+                                >Select mode</span
+                            >
+                            <span class="tn-shape__help-item-key">1</span>
+                        </div>
+                        <div class="tn-shape__help-item">
+                            <span class="tn-shape__help-item-name"
+                                >Draw mode</span
+                            >
+                            <span class="tn-shape__help-item-key">2</span>
+                        </div>
+                        <div class="tn-shape__help-item">
+                            <span class="tn-shape__help-item-name"
+                                >Edit mode</span
+                            >
+                            <span class="tn-shape__help-item-key">3</span>
+                        </div>
+                        <div class="tn-shape__help-item">
+                            <span class="tn-shape__help-item-name"
+                                >Bend mode</span
+                            >
+                            <span class="tn-shape__help-item-key">4</span>
+                        </div>
+                        <div class="tn-shape__help-item">
+                            <span class="tn-shape__help-item-name">Undo</span>
+                            <span class="tn-shape__help-item-key">⌘ + Z</span>
+                        </div>
+                        <div class="tn-shape__help-item">
+                            <span class="tn-shape__help-item-name">Redo</span>
+                            <span class="tn-shape__help-item-key"
+                                >⌘ + ⇧ + Z</span
+                            >
+                        </div>
+                        <div class="tn-shape__help-item">
+                            <span class="tn-shape__help-item-name">Copy</span>
+                            <span class="tn-shape__help-item-key">⌘ + C</span>
+                        </div>
+                        <div class="tn-shape__help-item">
+                            <span class="tn-shape__help-item-name">Paste</span>
+                            <span class="tn-shape__help-item-key">⌘ + V</span>
+                        </div>
+                        <div class="tn-shape__help-item">
+                            <span class="tn-shape__help-item-name">Remove</span>
+                            <span class="tn-shape__help-item-key">Backspace/Delete</span>
+                        </div>
+                        <div class="tn-shape__help-item">
+                            <span class="tn-shape__help-item-name">Send to front</span>
+                            <span class="tn-shape__help-item-key">]</span>
+                        </div>
+                        <div class="tn-shape__help-item">
+                            <span class="tn-shape__help-item-name">Move to back</span>
+                            <span class="tn-shape__help-item-key">[</span>
+                        </div>
+                        <div class="tn-shape__help-item">
+                            <span class="tn-shape__help-item-name">Move step front</span>
+                            <span class="tn-shape__help-item-key">⌘ + ]</span>
+                        </div>
+                        <div class="tn-shape__help-item">
+                            <span class="tn-shape__help-item-name">Move step back</span>
+                            <span class="tn-shape__help-item-key">⌘ + [</span>
+                        </div>
+                    </div>
+                    <div class="tn-shape__help-select">
+                        <div class="tn-shape__help-title">Select mode</div>
+                        <div>
+                            <p>
+                                TODO: Change text to pictograms <br />Select
+                                shape with left mouse button, double click to
+                                switch to edit mode.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="tn-shape__help-draw">
+                        <div class="tn-shape__help-title">Draw mode</div>
+                        <div>
+                            <p>
+                                TODO: Change text to pictograms <br />
+                                Use left mouse button to draw new shape, drag to
+                                curve.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="tn-shape__help-edit">
+                        <div class="tn-shape__help-title">Edit mode</div>
+                        <div>
+                            <p>
+                                TODO: Change text to pictograms <br />
+                                Use left mouse button to drag shape controls.
+                            </p>
+                        </div>
+                        <div class="tn-shape__help-item">
+                            <span class="tn-shape__help-item-name"
+                                >No mirror</span
+                            >
+                            <span class="tn-shape__help-item-key"
+                                >Drag + ⌘</span
+                            >
+                        </div>
+                        <div class="tn-shape__help-item">
+                            <span class="tn-shape__help-item-name"
+                                >Mirror angle</span
+                            >
+                            <span class="tn-shape__help-item-key"
+                                >Drag + ⌥</span
+                            >
+                        </div>
+                        <div class="tn-shape__help-item">
+                            <span class="tn-shape__help-item-name"
+                                >Toggle curve mode</span
+                            >
+                            <span class="tn-shape__help-item-key"
+                                >Doubleclick</span
+                            >
+                        </div>
+                    </div>
+                    <div class="tn-shape__help-bend">
+                        <div class="tn-shape__help-title">Bend mode</div>
+                        <div>
+                            <p>
+                                TODO: Change text to pictograms <br />
+                                Drag to smooth segments or points.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="tn-shape__help-stuff"></div>
+                </div>
+            
+`
 
 export default class Toolbar {
     constructor(shapeEditor) {
@@ -7,12 +141,16 @@ export default class Toolbar {
         this.container = shapeEditor.editor.container
         this.editor = shapeEditor.editor
         this.select = shapeEditor.select
+        this.stateMachine = shapeEditor.stateMachine
 
         this.toolbarElement = document.createElement('div')
         this.editModeButton = document.createElement('button')
         this.drawModeButton = document.createElement('button')
         this.bendModeButton = document.createElement('button')
         this.selectModeButton = document.createElement('button')
+        this.helpButton = document.createElement('button')
+
+        this.helpMessage = document.createElement('div')
 
         this.fillWrapper = document.createElement('div')
         this.strokeWrapper = document.createElement('div')
@@ -23,6 +161,7 @@ export default class Toolbar {
         this.strokeWidthWrapper = document.createElement('div')
         this.strokeWidthInput = document.createElement('input')
         this.strokeWidthInput.type = 'number'
+        this.strokeWidthInput.min = 0
 
         this.modeButtons = {
             'select': this.selectModeButton,
@@ -40,38 +179,38 @@ export default class Toolbar {
         this.modeButtons[mode].classList.toggle('active', true)
     }
 
-    updateInputs(shape) {
-        if (shape) {
-            this.fillMinicolor.minicolors('value', { color: shape.path.attrs.fill, opacity: shape.path.attrs['fill-opacity'] })
-            this.strokeMinicolor.minicolors('value', { color: shape.path.attrs.stroke, opacity: shape.path.attrs['stroke-opacity'] })
-            this.strokeWidthInput.value = shape.path.attrs['stroke-width']
+    updateInputs() {
+        const selection = this.select.selection
+
+
+        if (selection.length > 0 && selection[0] instanceof LayerControl) {
+            const pathEl = selection[0].path
+            this.fillMinicolor.minicolors('value', { color: pathEl.attrs.fill, opacity: pathEl.attrs['fill-opacity'] })
+            this.strokeMinicolor.minicolors('value', { color: pathEl.attrs.stroke, opacity: pathEl.attrs['stroke-opacity'] })
+            this.strokeWidthInput.value = pathEl.attrs['stroke-width']
+        } else {
+            const defaultColors = this.editor.defaultColors
+
+            this.fillMinicolor.minicolors('value', { color: defaultColors.fill.color, opacity: defaultColors.fill.opacity })
+            this.strokeMinicolor.minicolors('value', { color: defaultColors.stroke.color, opacity: defaultColors.stroke.opacity })
+            this.strokeWidthInput.value = this.editor.defaultStrokeWidth
         }
     }
 
     onFillColorChange(color) {
-        const shape = this.select.currentShape
-
-        if (shape) {
-            shape.path.attrs.fill = color
-            shape.path.attrs['fill-opacity'] = this.fillMinicolor.minicolors('opacity')
-
-            shape.path.repaint()
-            return
-        }
-
         const selection = this.select.selection
 
-        if (selection.length > 0 && selection[0] instanceof PathControl) {
+        if (selection.length > 0 && selection[0] instanceof LayerControl) {
             selection.forEach(shape => {
-                shape.path.attrs.fill = color
-                shape.path.attrs['fill-opacity'] = this.fillMinicolor.minicolors('opacity')
-
-                shape.path.repaint()
+                shape.path.setAttrsBatch({
+                    fill: color,
+                    'fill-opacity': this.fillMinicolor.minicolors('opacity')
+                })
             })
             return
         }
 
-        if (selection.length < 1 && (this.editor.mode === 'select' || this.editor.mode === 'draw')) {
+        if (selection.length < 1) {
             this.editor.defaultColors.fill.color = color
             this.editor.defaultColors.fill.opacity = this.fillMinicolor.minicolors('opacity')
 
@@ -80,25 +219,15 @@ export default class Toolbar {
     }
 
     onStrokeColorChange(color) {
-        const shape = this.select.currentShape
-
-        if (shape) {
-            shape.path.attrs.stroke = color
-            shape.path.attrs['stroke-opacity'] = this.strokeMinicolor.minicolors('opacity')
-
-            shape.path.repaint()
-            return
-        }
-
         const selection = this.select.selection
 
-        if (selection.length > 0 && selection[0] instanceof PathControl) {
+        if (selection.length > 0 && selection[0] instanceof LayerControl) {
 
             selection.forEach(shape => {
-                shape.path.attrs.stroke = color
-                shape.path.attrs['stroke-opacity'] = this.strokeMinicolor.minicolors('opacity')
-
-                shape.path.repaint()
+                shape.path.setAttrsBatch({
+                    stroke: color,
+                    'stroke-opacity': this.strokeMinicolor.minicolors('opacity')
+                })
             })
 
             return
@@ -111,23 +240,12 @@ export default class Toolbar {
     }
 
     onStrokeWidthChange(event) {
-        const shape = this.select.currentShape
-
-        console.log(shape)
-
-        if (shape) {
-            shape.path.attrs['stroke-width'] = event.target.value
-            shape.path.repaint()
-            return
-        }
-
         const selection = this.select.selection
 
-        if (selection.length > 0 && selection[0] instanceof PathControl) {
+        if (selection.length > 0 && selection[0] instanceof LayerControl) {
 
             selection.forEach(shape => {
-                shape.path.attrs['stroke-width'] = event.target.value
-                shape.path.repaint()
+                shape.path.setAttr('stroke-width', event.target.value)
             })
 
             return
@@ -160,14 +278,18 @@ export default class Toolbar {
         this.updateInputs(shape)
     }
 
-    onModeChanged(mode) {
-        this.setActiveModeClass(mode)
+    onStateChanged(state) {
+        this.setActiveModeClass(state.name)
+    }
+
+    setVisibility(value) {
+        this.toolbarElement.classList.toggle('tn-shape__toolbar_hidden', !value)
     }
 
     handleEvents() {
         const eventListeners = Object.entries(this.modeButtons).map(([mode, b]) => {
             const onClick = () => {
-                this.editor.mode = mode
+                this.stateMachine.setState(mode)
             }
 
             b.addEventListener('click', onClick)
@@ -183,17 +305,16 @@ export default class Toolbar {
 
         function onMouseEnter() {
             // this.toolbarElement.classList.toggle('tn-shape__toolbar_hidden', false)
-            emitter.emit('stopSelection')
+            emitter.emit('stopEvents')
         }
 
         function onMouseLeave() {
-            emitter.emit('resumeSelection')
+            emitter.emit('resumeEvents')
         }
 
         function onMouseMove() {
-            emitter.emit('stopSelection')
+            emitter.emit('stopEvents')
         }
-
 
         const mouseEnter = onMouseEnter.bind(this)
         const mouseLeave = onMouseLeave.bind(this)
@@ -201,11 +322,17 @@ export default class Toolbar {
 
         emitter.on('dragging', (params) => onDragging.call(this, params))
         emitter.on('shapeChanged', (shape) => this.onShapeChanged.call(this, shape))
-        emitter.on('changeSelection', (selection) => this.onChangeSelection.call(this, selection))
+        emitter.on('changeSelection', (selection) => this.updateInputs.call(this, selection))
         this.toolbarElement.addEventListener('mouseenter', mouseEnter)
         this.toolbarElement.addEventListener('mouseleave', mouseLeave)
         this.toolbarElement.addEventListener('mousemove', mouseMove)
         this.strokeWidthInput.addEventListener('change', (event) => this.onStrokeWidthChange(event))
+        this.helpButton.addEventListener('click', () => {
+            this.helpMessage.classList.toggle('tn-shape__help-show')
+        })
+        this.helpMessage.addEventListener('click', () => {
+            this.helpMessage.classList.toggle('tn-shape__help-show', false)
+        })
 
         return function () {
             eventListeners.forEach(({ mode, fn }) => this.modeButtons[mode].removeEventListener('click', fn))
@@ -218,10 +345,17 @@ export default class Toolbar {
     init() {
         this.toolbarElement.classList.add('tn-shape__toolbar')
 
-        this.selectModeButton.classList.add('tn-shape__toolbar-button', 'tn-shape__toolbar-button_edit')
+        this.selectModeButton.classList.add('tn-shape__toolbar-button', 'tn-shape__toolbar-button_select')
         this.editModeButton.classList.add('tn-shape__toolbar-button', 'tn-shape__toolbar-button_edit')
         this.drawModeButton.classList.add('tn-shape__toolbar-button', 'tn-shape__toolbar-button_draw')
         this.bendModeButton.classList.add('tn-shape__toolbar-button', 'tn-shape__toolbar-button_bend')
+        this.helpButton.classList.add('tn-shape__toolbar-button', 'tn-shape__toolbar-button_help')
+
+        this.selectModeButton.setAttribute('title', 'Select mode')
+        this.editModeButton.setAttribute('title', 'Edit mode')
+        this.drawModeButton.setAttribute('title', 'Draw mode')
+        this.bendModeButton.setAttribute('title', 'Bend mode')
+        this.helpButton.setAttribute('title', 'Help')
 
         this.fillWrapper.classList.add('tn-shape__toolbar-color', 'tn-shape__toolbar-color_fill')
         this.strokeWrapper.classList.add('tn-shape__toolbar-color', 'tn-shape__toolbar-color_stroke')
@@ -235,7 +369,7 @@ export default class Toolbar {
         strokeLabel.innerHTML = 'STROKE'
 
         const widthLabel = document.createElement('label')
-        widthLabel.innerText = 'STROKE WIDTH'
+        widthLabel.innerText = 'WIDTH'
 
         this.fillWrapper.append(fillLabel)
         this.fillWrapper.append(this.fillInput)
@@ -246,7 +380,7 @@ export default class Toolbar {
         this.strokeWidthWrapper.append(widthLabel)
         this.strokeWidthWrapper.append(this.strokeWidthInput)
 
-        this.setActiveModeClass(this.editor.mode)
+        this.setActiveModeClass(this.stateMachine.currentState.name)
 
         this.toolbarElement.append(this.selectModeButton)
         this.toolbarElement.append(this.drawModeButton)
@@ -255,10 +389,15 @@ export default class Toolbar {
         this.toolbarElement.append(this.fillWrapper)
         this.toolbarElement.append(this.strokeWrapper)
         this.toolbarElement.append(this.strokeWidthWrapper)
+        this.toolbarElement.append(this.helpButton)
 
+        this.helpMessage.classList.add('tn-shape__help')
+        this.helpMessage.innerHTML = HELP_HTML
         this.container.append(this.toolbarElement)
+        this.container.append(this.helpMessage)
 
-        emitter.on('modechange', (mode) => this.onModeChanged(mode))
+
+        emitter.on('stateChange', (state) => this.onStateChanged(state))
 
         this.clearEvents = this.handleEvents()
 
